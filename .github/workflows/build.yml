@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: unzip -q cimacima_app.zip -d app
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate android folder
+        working-directory: app
+        run: flutter create . --org online.cimacima --project-name cimacima --platforms=android
+
+      - name: Patch manifest
+        working-directory: app
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i \
+            -e 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' \
+            -e 's|<application|<application android:usesCleartextTraffic="true"|' \
+            -e 's|android:label="cimacima"|android:label="سيما سيما"|' \
+            "$M"
+
+      - name: Get packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cimacima-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
